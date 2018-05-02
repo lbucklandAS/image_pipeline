@@ -109,29 +109,12 @@ void imageCb(const sensor_msgs::ImageConstPtr& msg)
 static void mouseCb(int event, int x, int y, int flags, void* param)
 {
   if (event == cv::EVENT_LBUTTONDOWN) {
-    ROS_WARN_ONCE("Left-clicking no longer saves images. Right-click instead.");
     return;
   } else if (event != cv::EVENT_RBUTTONDOWN) {
     return;
   }
 
-  boost::mutex::scoped_lock lock(g_image_mutex);
-
-  const cv::Mat &image = g_last_image;
-
-  if (image.empty()) {
-    ROS_WARN("Couldn't save image, no data!");
-    return;
-  }
-
-  std::string filename = (g_filename_format % g_count).str();
-  if (cv::imwrite(filename, image)) {
-    ROS_INFO("Saved image %s", filename.c_str());
-    g_count++;
-  } else {
-    boost::filesystem::path full_path = boost::filesystem::complete(filename);
-    ROS_ERROR_STREAM("Failed to save image. Have permission to write there?: " << full_path);
-  }
+  cv::setWindowProperty(g_window_name, CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 }
 
 
