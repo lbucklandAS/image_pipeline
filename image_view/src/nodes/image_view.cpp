@@ -45,6 +45,9 @@
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
 
+#define IMAGE_MESSAGE_TIMEOUT 0.2
+#define PUBLISH_TIMEOUT_MSG 0.2
+
 int g_count;
 cv::Mat g_last_image;
 boost::format g_filename_format;
@@ -140,6 +143,8 @@ int main(int argc, char **argv)
   local_nh.param("window_name", g_window_name, topic);
   local_nh.param("gui", g_gui, true);  // gui/no_gui mode
 
+  double lastTimeoutSent = ros::Time::now().toSec();
+
   if (g_gui) {
     std::string format_string;
     local_nh.param("filename_format", format_string, std::string("frame%04i.jpg"));
@@ -199,17 +204,22 @@ int main(int argc, char **argv)
     // Get current time
     double now_sec = ros::Time::now().toSec();
 
-    if (last_image_msg == 0.0)
-    {
-      // Give joystick node a few seconds to start up
-      last_image_msg = now_sec + 5.0;
-    }
-    else if ((now_sec - last_image_msg) > 0.2) // TODO : add macro for diff
-    {
-      // Joystick has timed out
-      std_msgs::String timeout_msg;
-      timeout_msg.data = "image";
-      timeout_pub.publish(timeout_msg);
+    if ((now_sec - lastTimeoutSent) > PUBLISH_TIMEOUT_MSG)
+    { 
+      if (last_image_msg == 0.0)
+      {
+        // Give joystick node a few seconds to start up
+        last_image_msg = now_sec + 5.0;
+      }
+      else if ((now_sec - last_image_msg) > IMAGE_MESSAGE_TIMEOUT) // TODO : add macro for diff
+      {
+        // Joystick has timed out
+        std_msgs::String timeout_msg;
+        timeout_msg.data = "image";
+        timeout_pub.publish(timeout_msg);
+      }
+
+      lastTimeoutSent = now_sec;
     }
     
     // Receive messages
