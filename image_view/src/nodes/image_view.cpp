@@ -192,7 +192,7 @@ int main(int argc, char **argv)
     boost::bind(&reconfigureCb, _1, _2);
   srv.setCallback(f);
 
-  ros::Publisher timeout_pub = local_nh.advertise<std_msgs::String>("timeout", 1);
+  ros::Publisher timeout_pub = nh.advertise<std_msgs::String>("timeout", 1);
 
   while (ros::ok())
   {
