@@ -36,6 +36,7 @@
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <dynamic_reconfigure/server.h>
+#include <std_msgs/String.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/highgui/highgui.hpp>
@@ -56,6 +57,8 @@ int g_colormap;
 double g_min_image_value;
 double g_max_image_value;
 
+double last_image_msg = 0.0;
+
 void reconfigureCb(image_view::ImageViewConfig &config, uint32_t level)
 {
   boost::mutex::scoped_lock lock(g_image_mutex);
@@ -67,6 +70,9 @@ void reconfigureCb(image_view::ImageViewConfig &config, uint32_t level)
 
 void imageCb(const sensor_msgs::ImageConstPtr& msg)
 {
+  std_msgs::Header header = msg->header;
+  last_image_msg = header.stamp.toSec();
+
   boost::mutex::scoped_lock lock(g_image_mutex);
 
   // Convert to OpenCV native BGR color
@@ -186,7 +192,30 @@ int main(int argc, char **argv)
     boost::bind(&reconfigureCb, _1, _2);
   srv.setCallback(f);
 
-  ros::spin();
+  ros::Publisher timeout_pub = local_nh.advertise<std_msgs::String>("timeout", 1);
+
+  while (ros::ok())
+  {
+    // Get current time
+    double now_sec = ros::Time::now().toSec();
+
+    if (last_image_msg == 0.0)
+    {
+      // Give joystick node a few seconds to start up
+      last_image_msg = now_sec + 5.0;
+    }
+    else if ((now_sec - last_image_msg) > 0.2) // TODO : add macro for diff
+    {
+      // Joystick has timed out
+      std_msgs::String timeout_msg;
+      timeout_msg.data = "image";
+      timeout_pub.publish(timeout_msg);
+    }
+    
+    // Receive messages
+    ros::spinOnce();
+  }
+
 
   if (g_gui) {
     cv::destroyWindow(g_window_name);
